@@ -110,8 +110,8 @@ def image_loader(image_name):
     return image.to(device, torch.float)
 
 
-style_img = image_loader("./images/1.jpg")
-content_img = image_loader("./images/dog.jpeg")
+style_img = image_loader("./images/scream.jpg")
+content_img = image_loader("./images/mountain.jpg")
 
 assert style_img.size() == content_img.size(), \
     "we need to import style and content images of the same size"
@@ -412,7 +412,7 @@ def get_input_optimizer(input_img):
 # 
 
 def run_style_transfer(cnn, normalization_mean, normalization_std,
-                       content_img, style_img, input_img, num_steps=300,
+                       content_img, style_img, input_img, num_steps=700,
                        style_weight=1000000, content_weight=1):
     """Run the style transfer."""
     print('Building the style transfer model..')
