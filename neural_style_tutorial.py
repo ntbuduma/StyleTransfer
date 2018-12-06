@@ -59,8 +59,12 @@ import matplotlib.pyplot as plt
 
 import torchvision.transforms as transforms
 import torchvision.models as models
+import torchvision
 
 import copy
+
+import os
+import cv2
 
 
 ######################################################################
@@ -412,7 +416,7 @@ def get_input_optimizer(input_img):
 # 
 
 def run_style_transfer(cnn, normalization_mean, normalization_std,
-                       content_img, style_img, input_img, num_steps=700,
+                       content_img, style_img, input_img, num_steps=25,
                        style_weight=1000000, content_weight=1):
     """Run the style transfer."""
     print('Building the style transfer model..')
@@ -445,7 +449,7 @@ def run_style_transfer(cnn, normalization_mean, normalization_std,
             loss.backward()
 
             run[0] += 1
-            if run[0] % 50 == 0:
+            if run[0] % 25 == 0:
                 print("run {}:".format(run))
                 print('Style Loss : {:4f} Content Loss: {:4f}'.format(
                     style_score.item(), content_score.item()))
@@ -465,13 +469,54 @@ def run_style_transfer(cnn, normalization_mean, normalization_std,
 # Finally, we can run the algorithm.
 # 
 
-output = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
-                            content_img, style_img, input_img)
+# output = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
+#                             content_img, style_img, input_img)
 
-plt.figure()
-imshow(output, title='Output Image')
+# plt.figure()
+# imshow(output, title='Output Image')
 
-# sphinx_gallery_thumbnail_number = 4
-plt.ioff()
-plt.show()
+# # sphinx_gallery_thumbnail_number = 4
+# plt.ioff()
+# plt.show()
+image_folder = "./generated_frames/"
+images = [img for img in os.listdir("generated_frames")]
+frame = cv2.imread(os.path.join(image_folder, images[0]))
+height, width, layers = frame.shape
+
+l = []
+for filename in os.listdir("frames"):
+    if int(filename[5:-4]) % 5 == 0:
+        img = image_loader("./frames/" + filename)
+        l.append((img, filename, int(filename[5:-4])))
+
+l = sorted(l, key = lambda x : x[2])
+
+# img_list = []
+# count = 0
+# for frame_tup in l:
+#     frame = frame_tup[0]
+#     #img_list.append(frame)
+#     f = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
+#                             content_img, style_img, frame)
+#     print("done: " + str(frame_tup[2]/5))
+#     torchvision.utils.save_image(f,'./generated_frames/' + frame_tup[1])
+#     if count == 2:
+#         break
+#     count += 1
+
+img_list = []
+for filename in os.listdir("generated_frames"):
+    img_list.append((filename, int(filename[5:-4])))
+img_list = sorted(img_list, key = lambda x : x[1])
+print(img_list)
+fourcc = cv2.VideoWriter_fourcc(*'MP4V')
+video_name = 'video.mp4'
+video = cv2.VideoWriter(video_name, fourcc, frameSize=(width,height), fps=6)
+image_folder = "./generated_frames/"
+for img_tup in img_list:
+    video.write(cv2.imread(os.path.join(image_folder, img_tup[0])))  
+print("Here")
+cv2.destroyAllWindows()
+video.release()
+
 
