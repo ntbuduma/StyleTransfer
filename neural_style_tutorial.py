@@ -66,6 +66,10 @@ import copy
 import os
 import cv2
 
+from multiprocessing.dummy import Pool as ThreadPool
+import time
+
+start = time.time()
 
 ######################################################################
 # Next, we need to choose which device to run the network on and import the
@@ -103,7 +107,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 imsize = 512 if torch.cuda.is_available() else 128  # use small size if no gpu
 
 loader = transforms.Compose([
-    transforms.Resize(imsize),  # scale imported image
+    transforms.Resize((imsize, imsize)),  # scale imported image
     transforms.ToTensor()])  # transform it into a torch tensor
 
 
@@ -114,7 +118,7 @@ def image_loader(image_name):
     return image.to(device, torch.float)
 
 
-style_img = image_loader("./images/scream.jpg")
+style_img = image_loader("./images/picasso.jpg")
 content_img = image_loader("./images/mountain.jpg")
 
 assert style_img.size() == content_img.size(), \
@@ -478,6 +482,15 @@ def run_style_transfer(cnn, normalization_mean, normalization_std,
 # # sphinx_gallery_thumbnail_number = 4
 # plt.ioff()
 # plt.show()
+
+def generate_image(frame_tup):
+    frame = frame_tup[0]
+    f = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
+                            content_img, style_img, frame)
+    torchvision.utils.save_image(f,'./generated_frames/' + frame_tup[1])
+
+pool = ThreadPool(32)
+
 image_folder = "./generated_frames/"
 images = [img for img in os.listdir("generated_frames")]
 frame = cv2.imread(os.path.join(image_folder, images[0]))
@@ -490,6 +503,10 @@ for filename in os.listdir("frames"):
         l.append((img, filename, int(filename[5:-4])))
 
 l = sorted(l, key = lambda x : x[2])
+
+img_list = pool.map(generate_image, l)
+pool.close()
+pool.join()
 
 # img_list = []
 # count = 0
@@ -510,7 +527,7 @@ for filename in os.listdir("generated_frames"):
 img_list = sorted(img_list, key = lambda x : x[1])
 print(img_list)
 fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-video_name = 'video.mp4'
+video_name = 'video_test.mp4'
 video = cv2.VideoWriter(video_name, fourcc, frameSize=(width,height), fps=6)
 image_folder = "./generated_frames/"
 for img_tup in img_list:
@@ -519,4 +536,7 @@ print("Here")
 cv2.destroyAllWindows()
 video.release()
 
+end = time.time()
+elapsed = end - start
+print(elapsed)
 
