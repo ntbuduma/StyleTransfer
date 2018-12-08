@@ -498,15 +498,21 @@ height, width, layers = frame.shape
 
 l = []
 for filename in os.listdir("frames"):
-    if int(filename[5:-4]) % 5 == 0:
-        img = image_loader("./frames/" + filename)
-        l.append((img, filename, int(filename[5:-4])))
+    img = image_loader("./frames/" + filename)
+    l.append((img, filename, int(filename[5:-4])))
 
 l = sorted(l, key = lambda x : x[2])
 
-img_list = pool.map(generate_image, l)
+img_list = pool.map(generate_image, l[:len(l)//2])
 pool.close()
 pool.join()
+
+pool = ThreadPool(32)
+style_img = image_loader("./images/scream.jpg")
+img_list = pool.map(generate_image, l[len(l)//2:])
+pool.close()
+pool.join()
+
 
 # img_list = []
 # count = 0
@@ -527,7 +533,7 @@ for filename in os.listdir("generated_frames"):
 img_list = sorted(img_list, key = lambda x : x[1])
 print(img_list)
 fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-video_name = 'video_test.mp4'
+video_name = 'video_test_transition.mp4'
 video = cv2.VideoWriter(video_name, fourcc, frameSize=(width,height), fps=6)
 image_folder = "./generated_frames/"
 for img_tup in img_list:
