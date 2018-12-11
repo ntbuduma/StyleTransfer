@@ -56,6 +56,7 @@ import torch.optim as optim
 
 from PIL import Image
 import matplotlib.pyplot as plt
+import math
 
 import torchvision.transforms as transforms
 import torchvision.models as models
@@ -420,7 +421,7 @@ def get_input_optimizer(input_img):
 # 
 
 def run_style_transfer(cnn, normalization_mean, normalization_std,
-                       content_img, style_img, input_img, num_steps=25,
+                       content_img, style_img, input_img, num_steps=400,
                        style_weight=1000000, content_weight=1):
     """Run the style transfer."""
     print('Building the style transfer model..')
@@ -471,71 +472,70 @@ def run_style_transfer(cnn, normalization_mean, normalization_std,
 
 ######################################################################
 # Finally, we can run the algorithm.
-# 
-
-# output = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
-#                             content_img, style_img, input_img)
-
-# plt.figure()
-# imshow(output, title='Output Image')
-
-# # sphinx_gallery_thumbnail_number = 4
-# plt.ioff()
-# plt.show()
 
 def generate_image(frame_tup):
     frame = frame_tup[0]
     f = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
                             content_img, style_img, frame)
-    torchvision.utils.save_image(f,'./generated_frames/' + frame_tup[1])
+    torchvision.utils.save_image(f,'./generated_frames_german/' + frame_tup[1])
 
-pool = ThreadPool(32)
+def linear_approach(frames_per_second, count):
+    diff = 1000000/(2*frames_per_second)
+    style_weight_1 = 1000000 - diff*count
+    style_weight_2 = diff*count
+    return style_weight_1, style_weight_2
 
-image_folder = "./generated_frames/"
-images = [img for img in os.listdir("generated_frames")]
-frame = cv2.imread(os.path.join(image_folder, images[0]))
-height, width, layers = frame.shape
+def logistic_approach(x, x_0, k=0.5):
+    style_weight_2 = 1000000/(1+math.exp(-k*(x-x_0)))
+    style_weight_1 = 1000000 - style_weight_2
+    return style_weight_1, style_weight_2
 
 l = []
-for filename in os.listdir("frames"):
-    img = image_loader("./frames/" + filename)
+for filename in os.listdir("frames_german"):
+    img = image_loader("./frames_german/" + filename)
     l.append((img, filename, int(filename[5:-4])))
 
 l = sorted(l, key = lambda x : x[2])
 
-img_list = pool.map(generate_image, l[:len(l)//2])
-pool.close()
-pool.join()
-
-pool = ThreadPool(32)
-style_img = image_loader("./images/scream.jpg")
-img_list = pool.map(generate_image, l[len(l)//2:])
-pool.close()
-pool.join()
-
-
-# img_list = []
-# count = 0
-# for frame_tup in l:
-#     frame = frame_tup[0]
-#     #img_list.append(frame)
-#     f = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
-#                             content_img, style_img, frame)
-#     print("done: " + str(frame_tup[2]/5))
-#     torchvision.utils.save_image(f,'./generated_frames/' + frame_tup[1])
-#     if count == 2:
-#         break
-#     count += 1
+vidcap = cv2.VideoCapture("videos/german.mp4")
+frames_per_second = 2*vidcap.get(cv2.CAP_PROP_FPS)
 
 img_list = []
-for filename in os.listdir("generated_frames"):
+start_transition = len(l)//2 - frames_per_second
+end_transition = len(l)//2 + frames_per_second
+style_img = image_loader("./images/scream.jpg")
+for n in range(len(l)):
+    frame_tup = l[n]
+    frame = frame_tup[0]
+    if start_transition <= n and n <= end_transition:
+#        style_weight_1, style_weight_2 = linear_approach(frames_per_second, n-start_transition)
+        style_weight_1, style_weight_2 = logistic_approach(n, len(l)//2)
+        style_img = image_loader("./images/picasso.jpg")
+        f1 = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
+                                frame, style_img, frame, 400, style_weight_1)
+        style_img = image_loader("./images/scream.jpg")
+        f = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
+                                f1, style_img, f1, 400, style_weight_2)
+    else:
+        f = run_style_transfer(cnn, cnn_normalization_mean, cnn_normalization_std,
+                                frame, style_img, frame)
+    print("done: " + str(frame_tup[2]))
+    torchvision.utils.save_image(f,'./generated_frames_german/' + frame_tup[1])
+
+image_folder = "./generated_frames_german/"
+images = [img for img in os.listdir("generated_frames_german")]
+frame = cv2.imread(os.path.join(image_folder, images[0]))
+height, width, layers = frame.shape
+
+img_list = []
+for filename in os.listdir("generated_frames_german"):
     img_list.append((filename, int(filename[5:-4])))
 img_list = sorted(img_list, key = lambda x : x[1])
-print(img_list)
+
 fourcc = cv2.VideoWriter_fourcc(*'MP4V')
-video_name = 'video_test_transition.mp4'
-video = cv2.VideoWriter(video_name, fourcc, frameSize=(width,height), fps=6)
-image_folder = "./generated_frames/"
+video_name = 'video_test_german.mp4'
+video = cv2.VideoWriter(video_name, fourcc, frameSize=(width,height), fps=12)
+image_folder = "./generated_frames_german/"
 for img_tup in img_list:
     video.write(cv2.imread(os.path.join(image_folder, img_tup[0])))  
 print("Here")
